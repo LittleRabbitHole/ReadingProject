@@ -1,0 +1,358 @@
+---
+title: "Final_Project_GradingPart1"
+author: "Ang Li, ANL125@pitt.edu"
+date: "4/14/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#### Explore the dataset and generate both statistical and graphical summary.
+```{r data}
+setwd("/Users/angli/ANG/GoogleDrive/GoogleDrive_Pitt_PhD/UPitt_PhD_O/2017_Spring/Data-Mining-Spring17/data/final/Results_Ang")
+#setwd("/Users/ANG/GoogleDrive/GoogleDrive_Pitt_PhD/UPitt_PhD_O/2017_Spring/Data-Mining-Spring17/data/final/Results_Ang")
+
+grading_data = read.csv("students_grade_final.csv")
+```
+
+
+##### For numerical variables final grade, plot the density distribution. 
+
+```{r}
+library('ggplot2')
+#grading_data
+ggplot(grading_data, aes(x = final_comp_grade, fill = as.factor(class_HCI))) +
+  geom_density(alpha = 0.5)
+```
+
+
+```{r}
+#class_HCI:density plot
+ggplot(grading_data, aes(x = final_comp_grade, fill = class_HCI)) +
+  geom_density(alpha = 0.5) + facet_grid(class_HCI ~ .)
+#class_HCI: Anova test to compare means
+fit_class_HCI = lm(formula = final_comp_grade~class_HCI, data=grading_data)
+anova (fit_class_HCI)
+t.test(final_comp_grade~class_HCI, data=grading_data)
+```
+
+* Based on the ANOVA test above, we see that p-value < 0.05, we thus reject the null hypothesis H0 and accept the H1 that the 2 class groups means are statistically not equal.
+
+```{r}
+#look at reading behavior
+ggplot(grading_data, aes(x = prop_SkipReading, fill = class_HCI)) +
+  geom_density(alpha = 0.5)  + facet_grid(class_HCI ~ .)
+t.test(prop_SkipReading~class_HCI, data=grading_data) #p=0.016
+
+#reading speed
+ggplot(grading_data, aes(x = ave_reading_speed, fill = class_HCI)) +
+  geom_density(alpha = 0.5)  + facet_grid(class_HCI ~ .)
+t.test(ave_reading_speed~class_HCI, data=grading_data) #p=0.04951
+
+ggplot(grading_data, aes(x = Ave_last_attempt_rate, fill = as.factor(class_HCI))) +
+  geom_density(alpha = 0.5) # + facet_grid(class_HCI ~ .)
+t.test(ave_attempt_rate~class_HCI, data=grading_data) #p=0.04951
+
+#reading speed Vs final performance
+cor(grading_data$final_comp_grade, grading_data$ave_reading_speed)
+## [1] 0.1880
+
+ggplot(grading_data, aes(x = final_comp_grade, y=ave_reading_speed)) + geom_point(aes(colour = factor(class_HCI)))
+
+cor(grading_data$final_comp_grade, grading_data$std_reading_speed)
+## [1] 0.1880
+ggplot(grading_data, aes(x = final_comp_grade, y=std_reading_speed)) + geom_point(aes(colour = factor(class_HCI)))
+
+#reading speed and QA correction rate
+#for correlations
+library(corrplot)
+corr_data = grading_data[c("ave_reading_speed","std_reading_speed", 
+                           "average_attempt_times", "Ave_first_attempt_rate", 
+                           "Ave_last_attempt_rate", 
+                           "ave_attempt_rate","final_comp_grade")]
+
+cor.mtest <- function(mat, conf.level = 0.95){
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat <- lowCI.mat <- uppCI.mat <- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  diag(lowCI.mat) <- diag(uppCI.mat) <- 1
+  for(i in 1:(n-1)){
+    for(j in (i+1):n){
+      tmp <- cor.test(mat[,i], mat[,j], conf.level = conf.level)
+      p.mat[i,j] <- p.mat[j,i] <- tmp$p.value
+      lowCI.mat[i,j] <- lowCI.mat[j,i] <- tmp$conf.int[1]
+      uppCI.mat[i,j] <- uppCI.mat[j,i] <- tmp$conf.int[2]
+    }
+  }
+  return(list(p.mat, lowCI.mat, uppCI.mat))
+}
+
+res1 <- cor.mtest(na.omit(corr_data),0.99)
+M <- cor(na.omit(corr_data))
+corrplot(M, p.mat = res1[[1]],  type="lower",method="number",sig.level=0.1)
+corrplot(M,  type="lower",method="number",sig.level=0.1)
+
+ggplot(grading_data, aes(x = ave_reading_speed, y=std_reading_speed)) + geom_point(aes(colour = factor(class_HCI)))
+#ggplot(grading_data[which(grading_data$class_HCI==0),], aes(x = ave_reading_speed, y=std_reading_speed)) + geom_point(colour = "blue")
+
+ggplot(grading_data, aes(x = ave_reading_speed, y=Ave_last_attempt_rate)) + geom_point(aes(colour = factor(class_HCI)))
+#ggplot(grading_data[which(grading_data$class_HCI==0),], aes(x = ave_reading_speed, y=Ave_last_attempt_rate)) + geom_point(colour = "blue")
+
+ggplot(grading_data, aes(x = ave_reading_speed, y=Ave_first_attempt_rate)) + geom_point(aes(colour = factor(class_HCI)))
+#ggplot(grading_data[which(grading_data$class_HCI==0),], aes(x = ave_reading_speed, y=Ave_first_attempt_rate)) + geom_point(colour = "blue")
+
+ggplot(grading_data, aes(x = ave_reading_speed, y=ave_attempt_rate)) + geom_point(aes(colour = factor(class_HCI)))
+
+
+ggplot(grading_data, aes(x = average_attempt_times, y=ave_attempt_rate)) + geom_point(aes(colour = factor(class_HCI)))
+
+#correlation with final grade
+ggplot(grading_data, aes(x = std_reading_speed, y=final_comp_grade)) + geom_point(aes(colour = factor(class_HCI)))
+
+ggplot(grading_data, aes(x = ave_attempt_rate, y=final_comp_grade)) + geom_point(aes(colour = factor(class_HCI)))
+ggplot(grading_data[which(grading_data$class_HCI==1),], aes(x = ave_reading_speed, y=std_reading_speed)) + geom_point(colour = "blue")
+ggplot(grading_data[which(grading_data$class_HCI==0),], aes(x = ave_reading_speed, y=std_reading_speed)) + geom_point(colour = "orange")
+
+ggplot(grading_data, aes(x = Ave_first_attempt_rate, y=final_comp_grade)) + geom_point(aes(colour = factor(class_HCI)))
+
+```
+
+
+```{r}
+data = grading_data[c("ave_reading_speed","std_reading_speed","Average_nword","prop_SkipReading",
+                      "prop_fullreading","num_question_answered","average_attempt_times","Std_average_attempts",
+                      "Ave_first_attempt_rate","Std_first_attempt_rate","Ave_last_attempt_rate","Std_last_attempt_rate",
+                      "ave_attempt_rate","Std_ave_attempt.rate","class_HCI","Final_exam_grade", "final_comp_grade"
+                      )]
+#data$Ave_reading_time = data$Ave_reading_time/3600
+#data$Std_reading_time = data$Std_reading_time/3600
+
+fit1 = lm(final_comp_grade ~ ave_reading_speed+std_reading_speed+Average_nword
+          + prop_SkipReading + prop_fullreading 
+          + average_attempt_times+Std_average_attempts
+          + Ave_first_attempt_rate + Std_first_attempt_rate
+          +Ave_last_attempt_rate + Std_last_attempt_rate
+          +ave_attempt_rate + Std_ave_attempt.rate
+          + as.factor(class_HCI), data=data)
+summary(fit1)
+
+## leave-one-out cross validation
+n = length(data$final_comp_grade)
+error = dim(n)
+predicts = dim(n)
+obss = dim(n)
+for (k in 1:n) {
+  train1 = c(1:n)
+  train = train1[train1!=k] ## pick elements that are different from k
+  m1 = lm(final_comp_grade ~ ave_reading_speed+std_reading_speed+Average_nword
+          + prop_SkipReading + prop_fullreading 
+          + average_attempt_times+Std_average_attempts
+          + Ave_first_attempt_rate + Std_first_attempt_rate
+          +Ave_last_attempt_rate + Std_last_attempt_rate
+          +ave_attempt_rate + Std_ave_attempt.rate
+          + as.factor(class_HCI), data=data[train ,])
+  pred = predict(m1, newdat=data[-train ,])
+  predicts[k] = pred
+  obs = data$final_comp_grade[-train]
+  obss[k] = obs
+  error[k] = obs-pred
+}
+rmse1=sqrt(mean(error^2))
+rmse1 ## root mean square error 0.04695582
+
+prediction = data.frame(predicts)
+colnames(prediction) = "numbers"
+prediction$class = "pred"
+observation = data.frame(obss)
+colnames(observation) = "numbers"
+observation$class="obs"
+
+predictions_comp = rbind(prediction, observation)
+ggplot(predictions_comp, aes(x = numbers, fill = class)) +
+  geom_density(alpha = 0.5)
+```
+
+
+
+```{r part_2a2}
+## plot regression diagnostics
+par(mfrow=c(2,2))
+plot(fit1)
+```
+
+* **Regression Diagnostics**
+
+* Normality: The Normal Q-Q plot is a probability plot of the standardized residuals against the values that would be expected under normality. If we met the normality assumption, the points on this graph should fall on the straight 45-degree line. In our case, it is generally normally distributed.
+
+* Independence: We believe that all students should be independent to each other.
+
+* Linearity: If the dependent variable is linearly related to the independent variables, there should be no systematic relationship between the residuals and the predicted (that is, fitted) values. In other words, the model should capture all the systematic variance present in the data, leaving nothing but random noise. In the **Residuals vs Fitted graph** (upper left), we observed a little bit curved relationship, which suggests that we may want to add a quadratic term to the regression.
+
+* Homoscedasticity: The points in the **Scale-Location graph** (bottom left) seems to be a random band around a horizontal line.
+
+##### * Here I tried 3 ways to improve the current linear regression.
+#### Standard linear regression with significant terms, and count variable log transformed 
+
+```{r part_2b1}
+## using improved linear model ###
+fit_Linear = lm(final_comp_grade ~ ave_reading_speed+std_reading_speed
+          + average_attempt_times
+          + Ave_first_attempt_rate + Std_first_attempt_rate
+          +Ave_last_attempt_rate + Std_last_attempt_rate
+          + as.factor(class_HCI), data=data)
+summary(fit_Linear)
+
+## leave-one-out cross validation
+n = length(data$final_comp_grade)
+error = dim(n)
+predicts = dim(n)
+obss = dim(n)
+for (k in 1:n) {
+  train1 = c(1:n)
+  train = train1[train1!=k] ## pick elements that are different from k
+  m1 = lm(final_comp_grade ~ ave_reading_speed+std_reading_speed
+          #+ prop_SkipReading + prop_fullreading 
+          + log(average_attempt_times)#+Std_average_attempts
+          + Ave_first_attempt_rate + Std_first_attempt_rate
+          +Ave_last_attempt_rate + Std_last_attempt_rate
+          #+ave_attempt_rate + Std_ave_attempt.rate
+          + as.factor(class_HCI), data=data[train ,])
+  pred = predict(m1, newdat=data[-train ,])
+  predicts[k] = pred
+  obs = data$final_comp_grade[-train]
+  obss[k] = obs
+  error[k] = obs-pred
+}
+rmse_Linear=sqrt(mean(error^2))
+rmse_Linear ## root mean square error 0.04475396
+
+prediction = data.frame(predicts)
+colnames(prediction) = "numbers"
+prediction$class = "pred"
+observation = data.frame(obss)
+colnames(observation) = "numbers"
+observation$class="obs"
+
+predictions_comp = rbind(prediction, observation)
+ggplot(predictions_comp, aes(x = numbers, fill = class)) +
+  geom_density(alpha = 0.5)
+
+par(mfrow=c(2,2))
+plot(m1)
+```
+
+2. We then tried to improve the model using non-lieanr term with regularization. We add the quadratic term for all the numerical variables into the basic linear regression with all variables. We also did regularization on this model. After we found the best lambda on regularization term, we then able to calcuate the root mean square error: rmse= 0.042 by applying the leave-one-out cross validation. 
+
+```{r part_2b2, fig.width=4, fig.height=4}
+##using non-linear + regularization##
+library(glmnet)
+x_factor = as.factor(data$class_HCI)
+
+#numerical variable into quadratic term
+ave_reading_speed = data.frame(poly(data$ave_reading_speed, degree = 2))
+colnames(ave_reading_speed) <- c("ave_reading_speed1", "ave_reading_speed2")
+
+std_reading_speed = data.frame(poly(data$std_reading_speed, degree = 2))
+colnames(std_reading_speed) <- c("std_reading_speed1", "std_reading_speed2")
+
+Ave_first_attempt_rate = data.frame(poly(data$Ave_first_attempt_rate, degree = 2))
+colnames(Ave_first_attempt_rate) <- c("Ave_first_attempt_rate1", "Ave_first_attempt_rate2")
+
+Std_first_attempt_rate = data.frame(poly(data$Std_first_attempt_rate, degree = 2))
+colnames(Std_first_attempt_rate) <- c("Std_first_attempt_rate1", "Std_first_attempt_rate2")
+
+Ave_last_attempt_rate = data.frame(poly(data$Ave_last_attempt_rate, degree = 2))
+colnames(Ave_last_attempt_rate) <- c("Ave_last_attempt_rate1", "Ave_last_attempt_rate2")
+
+Std_last_attempt_rate = data.frame(poly(data$Std_last_attempt_rate, degree = 2))
+colnames(Std_last_attempt_rate) <- c("Std_last_attempt_rate1", "Std_last_attempt_rate2")
+
+poly_data = cbind(ave_reading_speed, std_reading_speed, Ave_first_attempt_rate, Std_first_attempt_rate,Ave_last_attempt_rate,Std_last_attempt_rate)
+
+#final data
+x = data.matrix(data.frame(x_factor,poly_data))
+y=data$final_comp_grade
+df <- data.frame(X = x, Y = y)
+
+####--- step1. Find the best lambda ----####
+## using training testing to find the best lamda
+## split it into a training set and a test set
+n <- dim(x)[1]
+indices <- sort(sample(1:n, round (0.7 * n)))
+training.x <- x[indices,]
+training.y <- y[indices]
+test.x <- x[-indices,]
+test.y <- y[-indices]
+
+training.df <- data.frame(X = training.x, Y = training.y)
+test.df <- data.frame(X = test.x, Y = test.y)
+
+rmse <- function(y, h) {
+  return(sqrt(mean((y - h) ^ 2)))
+}
+
+## loop over values of Lambda
+glmnet.fit <- glmnet(training.x, training.y)
+lambdas <- glmnet.fit$lambda ## regularization parameter (sequence)
+performance <- data.frame()
+for (lambda in lambdas) {
+  performance <- rbind(performance ,
+                       data.frame(Lambda = lambda ,
+                                  RMSE = rmse(test.y, predict(glmnet.fit , test.x, s = lambda))))
+}
+
+## plot to see the model performance w.r.t. the range of lambdas
+ggplot(performance , aes(x = Lambda , y = RMSE)) +
+  geom_point() +
+  geom_line()
+
+## we get the best possible performance with Lambda near 0.01; select that value and train our model
+best.lambda <- with(performance , Lambda[which(RMSE == min(RMSE))])
+
+##---Step2----## 
+##Using the best lambda to fit the model and calculate the leave one out cross validation RMSE
+## leave-one-out cross validation
+n = length(data$final_comp_grade)
+error = dim(n)
+predicts = dim(n)
+obss = dim(n)
+for (k in 1:n) {
+  train1 = c(1:n)
+  train = train1[train1!=k] ## pick elements that are different from k
+  training.x2 = x[train ,]
+  training.y2 = y[train]
+  m1 = glmnet(training.x2, training.y2)
+  pred = predict(m1, t(as.matrix(x[-train ,])), s = best.lambda[1], alpha = 1) #predict on the one left out
+  predicts[k] = pred
+  obs = y[-train]
+  obss[k] = obs
+  error[k] = obs-pred
+}
+rmse_reg=sqrt(mean(error^2))
+rmse_reg ## root mean square error
+#0.04211337
+
+glmnet.fit <- with(df, glmnet(x, y))
+coef(glmnet.fit , s = best.lambda[1])
+
+prediction = data.frame(predicts)
+colnames(prediction) = "numbers"
+prediction$class = "pred"
+observation = data.frame(obss)
+colnames(observation) = "numbers"
+observation$class="obs"
+
+predictions_comp = rbind(prediction, observation)
+ggplot(predictions_comp, aes(x = numbers, fill = class)) +
+  geom_density(alpha = 0.5)
+
+
+```
+
+
+* In conclusion, we fit the baseline model by just using the linear regression with all the important variables, and also tested with non-linear regression method: using quadratic term with regularization, which decrease root mean square error based on the leave-one-out cross validation.
+

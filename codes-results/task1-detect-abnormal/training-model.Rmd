@@ -1,0 +1,440 @@
+---
+title: "Final Project - Hung Kim Chau (hkc6)"
+author: "HungChau"
+date: "04/10/2017"
+output:
+html_document: default
+pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Identify and report response variable and predictors
+
++ The response variables: abnormal
++ The predictors: READ, average.attempts, first.attempt.rate, last.attempt.rate, average.attempt.rate
+
+### ANALYZE DATA:
+
+
+```{r}
+data.file = ("/Users/ckhuit/Documents/r-work/data-mining/final-project/labeled-data/dataset-task1.csv")
+reading.data = read.csv(data.file)
+reading.data$abnormal = as.factor(reading.data$abnormal)
+reading.data = reading.data[-(reading.data$reading.speed==0),]
+reading.data = reading.data[reading.data$number.of.question < 11,]
+nrow(reading.data)
+```
+
+**+ A summary table for the data. For each numerical variable: variable name, mean, median, 1st quartile, 3rd quartile, and standard deviation.**
+
+```{r}
+reading.speed = c(summary(reading.data$reading.speed), sd(reading.data$reading.speed))
+number.of.questions = c(summary(reading.data$number.of.question), sd(reading.data$number.of.question))
+average.attempts = c(summary(reading.data$average.attempts), sd(reading.data$average.attempts))
+last.attempt.rate = c(summary(reading.data$last.attempt.rate), sd(reading.data$last.attempt.rate))
+first.attempt.rate = c(summary(reading.data$first.attempt.rate), sd(reading.data$first.attempt.rate))
+average.attempt.rate = c(summary(reading.data$average.attempt.rate), sd(reading.data$average.attempt.rate))
+
+result = rbind(reading.speed,number.of.questions, average.attempts,first.attempt.rate,last.attempt.rate,average.attempt.rate)
+result = as.data.frame(result)
+colnames(result)[7] = c("sd")
+library(knitr)
+kable(result, caption = 'Table 1: Summary of Numerical Variables')
+```
+
+**+ For categorical predictor READ, generate the conditional density plot of response variable**
+```{r}
+library(lattice) 
+library(ggplot2)
+
+# table(reading.data$READ)
+table(reading.data$abnormal)
+# histogram(~factor(abnormal)|READ,data=reading.data,layout=c(1,3),col="blue", xlab = "Abnormal Behavior")
+
+ggplot(data = reading.data, aes(x = reading.speed))+ geom_density()
+ggplot(data = reading.data, aes(x = reading.speed, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = reading.speed, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(reading.speed ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+
+ggplot(data = reading.data, aes(x = number.of.question))+ geom_density()
+ggplot(data = reading.data, aes(x = number.of.question, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = number.of.question, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(number.of.question ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+
+ggplot(data = reading.data, aes(x = average.attempts))+ geom_density()
+ggplot(data = reading.data, aes(x = average.attempts, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = average.attempts, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(average.attempts ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+
+ggplot(data = reading.data, aes(x = first.attempt.rate))+ geom_density()
+ggplot(data = reading.data, aes(x = first.attempt.rate, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = first.attempt.rate, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(first.attempt.rate ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+
+ggplot(data = reading.data, aes(x = last.attempt.rate))+ geom_density()
+ggplot(data = reading.data, aes(x = last.attempt.rate, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = last.attempt.rate, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(last.attempt.rate ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+
+ggplot(data = reading.data, aes(x = average.attempt.rate))+ geom_density()
+ggplot(data = reading.data, aes(x = average.attempt.rate, fill = abnormal))+ geom_density(alpha = 0.3)
+ggplot(reading.data, aes(x = abnormal, y = average.attempt.rate, fill = abnormal))+geom_boxplot()
+#ANOVA test
+theModelfit = lm(average.attempt.rate ~ abnormal, data = reading.data)
+theAnova = anova(object=theModelfit)
+theAnova
+```
+
+###TRAINING MODEL
+
++ Building the models for classsification: Logistic regression, kNN-1, kNN-3, kNN-5, Naive Bayesian, Decision tree, SVM, and Ensemble methods.
+
+```{r}
+do.classification <- function(train.set, test.set, 
+                              cl.name, verbose=F) {
+  ## note: to plot ROC later, we want the raw probabilities,
+  ## not binary decisions
+  switch(cl.name, 
+         knn1 = { # here we test k=1
+           prob = knn(train.set[,-1], test.set[,-1], cl=train.set[,1], k = 1, prob=T)
+           attr(prob,"prob")[prob==0] = 1-attr(prob,"prob")[prob==0] #modified
+           prob = attr(prob,"prob")
+           # print(prob)
+           prob
+         },
+         knn8 = { # here we test k=3
+           # print(train.set[1:5,-1])
+           # print(test.set[1:5,-1])
+           # print(train.set[1:5,1])
+           prob = knn(train.set[,-1], test.set[,-1], cl=train.set[,1], k = 8, prob=T)
+           attr(prob,"prob")[prob==0] = 1-attr(prob,"prob")[prob==0] #modified
+           prob = attr(prob,"prob")
+           # print(cbind(prob,as.character(test.set$y)))
+           # print(prob)
+           prob
+           # print("testing prob")
+           
+         },
+         knn5 = { # here we test k=5
+           prob = knn(train.set[,-1], test.set[,-1], cl=train.set[,1], k = 5, prob=T)
+           attr(prob,"prob")[prob==0] = 1-attr(prob,"prob")[prob==0] #modified
+           prob = attr(prob,"prob")
+           # print(prob)
+           #print(cbind(prob,as.character(test.set$y)))
+           prob
+         },
+         lr = { # logistic regression
+           model = glm(y~., family=binomial, data=train.set)
+           if (verbose) {
+             print(summary(model))             
+           }
+           prob = predict(model, newdata=test.set, type="response") 
+           #print(cbind(prob,as.character(test.set$y)))
+           prob
+         },
+         nb = {
+           model = naiveBayes(y~., data=train.set)
+           prob = predict(model, newdata=test.set, type="raw") 
+           #print(cbind(prob,as.character(test.set$y)))
+           prob = prob[,2]/rowSums(prob) # renormalize the prob.
+           prob
+         },
+         dtree = {
+           model = rpart(y~., data=train.set)
+           if (verbose) {
+             #print(summary(model)) # detailed summary of splits
+             #printcp(model) # print the cross-validation results
+             plotcp(model) # visualize the cross-validation results
+             ## plot the tree
+             plot(model, uniform=TRUE, main="Classification Tree")
+             text(model, use.n=TRUE, all=TRUE, cex=.8)
+           }           
+           prob = predict(model, newdata=test.set)
+           
+           #print(cbind(prob,as.character(test.set$y)))
+           prob = prob[,2]/rowSums(prob) # renormalize the prob.
+           prob
+         },
+         dtree.pruned = {
+           model = rpart(y~., data=train.set)
+           if (verbose) {
+             #print(summary(model)) # detailed summary of splits
+             #printcp(model) # print the cross-validation results
+             plotcp(model) # visualize the cross-validation results
+             ## plot the tree
+             # plot(model, uniform=TRUE, main="Classification Tree")
+             # text(model, use.n=TRUE, all=TRUE, cex=.8)
+           }           
+           
+           #print("HDJFHSDKJFKSDJFHDKJSF")
+           pfit<- prune(model, cp=model$cptable[which.min(model$cptable[,"xerror"]),"CP"])
+           prob = predict(pfit, newdata=test.set)
+           ## plot the pruned tree 
+           # plot(pfit, uniform=TRUE,main="Pruned Classification Tree")
+           # text(pfit, use.n=TRUE, all=TRUE, cex=.8)             
+           
+           #print(cbind(prob,as.character(test.set$y)))
+           prob = prob[,2]/rowSums(prob) # renormalize the prob.
+           prob
+         },
+         svm1 = {
+           model = svm(y~., data=train.set, probability=T)
+           if (0) { # fine-tune the model with different kernel and parameters
+             ## evaluate the range of gamma parameter between 0.000001 and 0.1
+             ## and cost parameter from 0.1 until 10
+             
+             #print("HDJFHSDKJFKSDJFHDKJSF")
+             tuned <- tune.svm(y~., data = train.set, 
+                               kernel="radial", 
+                               gamma = 10^(-6:-1), cost = 10^(-1:1))
+             #print(summary(tuned))
+             gamma = tuned[['best.parameters']]$gamma
+             cost = tuned[['best.parameters']]$cost
+             model = svm(y~., data = train.set, probability=T, 
+                         kernel="radial", gamma=gamma, cost=cost)                        
+           }
+           prob = predict(model, newdata=test.set, probability=T)
+           prob = attr(prob,"probabilities")
+           #print(cbind(prob,as.character(test.set$y)))
+           #print(dim(prob))
+           prob = prob[,which(colnames(prob)==1)]/rowSums(prob)
+           prob
+         },
+         svm2 = {
+           
+           tuned <- tune.svm(y~., data = train.set, 
+                             kernel="radial", 
+                             gamma = 10^(-6:-1), cost = 10^(-1:1))
+           #print(summary(tuned))
+           gamma = tuned[['best.parameters']]$gamma
+           cost = tuned[['best.parameters']]$cost
+           model = svm(y~., data = train.set, probability=T, 
+                       kernel="radial", gamma=gamma, cost=cost)                        
+           
+           prob = predict(model, newdata=test.set, probability=T)
+           prob = attr(prob,"probabilities")
+           #print(cbind(prob,as.character(test.set$y)))
+           #print(dim(prob))
+           prob = prob[,which(colnames(prob)==1)]/rowSums(prob)
+           prob
+         },
+         ada = {
+           model = ada(y~., data = train.set)
+           prob = predict(model, newdata=test.set, type='probs')
+           #print(cbind(prob,as.character(test.set$y)))
+           prob = prob[,2]/rowSums(prob)
+           prob
+         }
+  ) 
+}
+```
+
++ Using 60% for training and 40% for testing
+
+```{r}
+pre.test <- function(dataset, cl.name, r=0.6, prob.cutoff=0.5) {
+  ## Let's use 60% random sample as training and remaining as testing
+  ## by default use 0.5 as cut-off
+  n.obs <- nrow(dataset) # no. of observations in dataset
+  n.train = floor(n.obs*r)
+  train.idx = sample(1:n.obs,n.train)
+  train.idx
+  train.set = dataset[train.idx,]
+  test.set = dataset[-train.idx,]
+  cat('pre-test',cl.name,':',
+      '#training:',nrow(train.set),
+      '#testing',nrow(test.set),'\n')
+  prob = do.classification(train.set, test.set, cl.name)
+  # prob is an array of probabilities for cases being positive
+  
+  ## get confusion matrix
+  predicted = as.numeric(prob > prob.cutoff)
+  actual = test.set$y
+  confusion.matrix = table(actual,factor(predicted,levels=c(0,1)))
+  error = (confusion.matrix[1,2]+confusion.matrix[2,1]) / nrow(test.set)  
+  cat('error rate:',error,'\n')
+  # you may compute other measures based on confusion.matrix
+  # @see handout03 p.30-
+  
+  ## plot ROC
+  result = data.frame(prob,actual)
+  pred = prediction(result$prob,result$actual)
+  perf_roc = performance(pred, "tpr","fpr")
+  #plot(perf_roc)    
+  
+  ## get other measures by using 'performance'
+  get.measure <- function(pred, measure.name='auc') {
+    perf = performance(pred,measure.name)
+    m <- unlist(slot(perf, "y.values"))
+    m
+  }
+  
+  acc = mean(get.measure(pred, 'acc'))
+  err = mean(get.measure(pred, 'err'))
+  precision = mean(get.measure(pred, 'prec'),na.rm=T)
+  recall = mean(get.measure(pred, 'rec'),na.rm=T)
+  fscore = mean(get.measure(pred, 'f'),na.rm=T)
+  cat('acc=',acc,'error=',err,'precision=',precision,'recall=',recall,'f-score',fscore,'\n')
+  auc = get.measure(pred, 'auc')
+  cat('auc=',auc,'\n')
+  cat("plot roc")
+  c(acc, precision, recall, fscore, auc, list(prob), list(actual))
+}
+
+```
+
++ Using k-fold for cross valuation. This function calculates the measures (e.g., accuracy, precision, recall, F-score, AUC) by using "*perfomance* function. I also write codes for calculating the measures by using confusion matrix
+
+```{r}
+k.fold.cv <- function(dataset, cl.name, k.fold=10, prob.cutoff=0.8, measure.perf = 0) {
+  ## default: 10-fold CV, cut-off 0.5 
+  n.obs <- nrow(dataset) # no. of observations 
+  s = sample(n.obs)
+  errors = dim(k.fold)
+  probs = NULL
+  actuals = NULL
+  for (k in 1:k.fold) {
+    test.idx = which(s %% k.fold == (k-1) ) # use modular operator
+    train.set = dataset[-test.idx,]
+    test.set = dataset[test.idx,]
+    # cat(k.fold,'-fold CV run',k,cl.name,':',
+    #     '#training:',nrow(train.set),
+    #     '#testing',nrow(test.set),'\n')
+    prob = do.classification(train.set, test.set, cl.name)
+    predicted = as.numeric(prob > prob.cutoff)
+    actual = test.set$y
+    #cat("Hung: ", length(actual), length((predicted)))
+    confusion.matrix = table(actual,factor(predicted,levels=c(0,1)))
+    confusion.matrix
+    error = (confusion.matrix[1,2]+confusion.matrix[2,1]) / nrow(test.set)  
+    errors[k] = error
+    cat('\t\terror=',error,'\n')
+    probs = c(probs,prob)
+    actuals = c(actuals,actual)
+    ## you may compute other measures and store them in arrays
+  }
+  
+  avg.error = mean(errors)
+  cat(k.fold,'-fold CV results:','avg error=',avg.error,'\n')
+  
+  ## plot ROC
+  actuals = actuals-1
+  result = data.frame(probs,actuals)
+  pred = prediction(result$probs,result$actuals)
+  perf = performance(pred, "tpr","fpr")
+  #plot(perf)  
+  
+  ## get other measures by using 'performance'
+  get.measure <- function(pred, measure.name='auc') {
+    perf = performance(pred,measure.name)
+    m <- unlist(slot(perf, "y.values"))
+    m
+  }
+  # 
+  if(measure.perf==0) #calculate the performance measures by using confusion matrix
+  {
+    print(probs[1:10])
+    btest=floor(probs+0.2)
+    conf.matrix = table(actuals, btest)
+    if(ncol(conf.matrix)==1){
+      conf.matrix = cbind(conf.matrix, c(0,0))
+    }
+    print(conf.matrix)
+    acc = round((conf.matrix[1,1]+conf.matrix[2,2])/n.obs, 3)
+    err = round((conf.matrix[1,2]+conf.matrix[2,1])/n.obs, 3)
+    precision = round(conf.matrix[2,2]/(sum(conf.matrix[,2])),3)
+    recall = round(conf.matrix[2,2]/(sum(conf.matrix[2,])),3)
+    f1.score = round(2*precision*recall/(precision+recall), 3)
+  }else{
+    acc = mean(get.measure(pred, 'acc'))
+    err = mean(get.measure(pred, 'err'))
+    precision = mean(get.measure(pred, 'prec'),na.rm=T)
+    recall = mean(get.measure(pred, 'rec'),na.rm=T)
+    f1.score = mean(get.measure(pred, 'f'),na.rm=T)
+  }
+  
+  cat('acc=',acc,'error=',err,'precision=',precision,'recall=',recall,'f-score',f1.score,'\n')
+  auc = get.measure(pred, 'auc')
+  cat('auc=',auc,'\n')
+  c(acc, precision, recall, f1.score, auc, list(prob), list(actual))
+}
+```
+
++ This function is called for classification
+
+```{r}
+my.classifier <- function(dataset, cl.name='knn', do.cv=F) {
+  n.obs <- nrow(dataset) # no. of observations in dataset
+  n.cols <- ncol(dataset) # no. of predictors
+  # cat('my dataset:',
+  #     n.obs,'observations',
+  #     n.cols-1,'predictors','\n')
+  # print(dataset[1:3,])
+  cat('label (y) distribution:') 
+  print(table(dataset$y))
+  
+  if (do.cv) k.fold.cv(dataset, cl.name)
+  else
+    pre.test(dataset, cl.name)
+}
+```
+
++ Do classification and report the performance table
+
+```{r warning=FALSE}
+library(ggplot2)
+library(MASS)
+library(plyr)
+library(e1071)
+library(ROCR)
+library(car)
+library(rpart)
+library(ada)
+library(class)
+set.seed(1988)
+# my.dataset = reading.data[, c('reading.speed', 'number.of.question','average.attempts','first.attempt.rate', 'last.attempt.rate', 'average.attempt.rate', 'abnormal')]
+my.dataset = reading.data[, c('reading.speed', 'number.of.question','average.attempts','first.attempt.rate', 'average.attempt.rate', 'abnormal')]
+
+# my.dataset$READ = as.numeric(mapvalues(my.dataset$READ, from=c('FULL', 'SHORT', 'SKIP'), to=c(0,1,2)))
+#colnames(my.dataset)[7] <- 'y'
+my.dataset = cbind(y = my.dataset$abnormal, my.dataset)
+my.dataset$abnormal = NULL
+names(my.dataset)
+
+logistic = my.classifier(my.dataset, cl.name='lr',do.cv=T)
+kNN8 = my.classifier(my.dataset, cl.name='knn8',do.cv=T)
+NB = my.classifier(my.dataset, cl.name='nb',do.cv=T)
+Dtree=my.classifier(my.dataset, cl.name='dtree',do.cv=T)
+SVM1=my.classifier(my.dataset, cl.name='svm1',do.cv=T)
+Adaboost=my.classifier(my.dataset, cl.name='ada',do.cv=T)
+kNN1 = my.classifier(my.dataset, cl.name='knn1',do.cv=T)
+kNN5 = my.classifier(my.dataset, cl.name='knn5',do.cv=T)
+SVM2=my.classifier(my.dataset, cl.name='svm2',do.cv=T)
+#Dtree_pruned=my.classifier(my.dataset, cl.name='dtree.pruned',do.cv=T)
+
+result= cbind(logistic[1:5],kNN1[1:5], kNN5[1:5], kNN8[1:5], NB[1:5], Dtree[1:5], SVM1[1:5],SVM2[1:5], Adaboost[1:5])
+rownames(result) = c("accuracy","precision","recall","F-score","AUC")
+colnames(result) = c("logistic","kNN1","kNN5","kNN8", "NB", "Dtree", "SVM1", "SVM2","Adaboost")
+result
+barplot(unlist(result[4,]), main="F-score", xlab="Classification Techniques",col ="blue",border="red",cex.names=0.5)
+# barplot(unlist(result[5,]), main="AUC", xlab="Classification Techniques",col ="orange", border="red",cex.names=0.5)
+#lrModel
+```
